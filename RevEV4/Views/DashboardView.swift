@@ -14,6 +14,7 @@ struct DashboardView: View {
 
     @State private var showDeviceList = false
     @State private var showEngineSelector = false
+    @State private var showDemoMode = false
 
     init() {
         let obd = OBDViewModel()
@@ -74,6 +75,9 @@ struct DashboardView: View {
         }
         .sheet(isPresented: $showEngineSelector) {
             EngineSelectorView(viewModel: audioViewModel)
+        }
+        .sheet(isPresented: $showDemoMode) {
+            DemoView(audioViewModel: audioViewModel)
         }
     }
 
@@ -207,6 +211,24 @@ struct DashboardView: View {
 
     private var bottomBar: some View {
         HStack {
+            // Demo mode button
+            Button {
+                showDemoMode = true
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "slider.horizontal.3")
+                    Text("Demo")
+                }
+                .font(.cyberpunkCaption)
+                .foregroundStyle(CyberpunkTheme.neonCyan)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 10)
+                .background(CyberpunkTheme.cardBackground)
+                .clipShape(Capsule())
+            }
+
+            Spacer()
+
             // Pitch indicator
             if audioViewModel.isPlaying {
                 HStack(spacing: 8) {
