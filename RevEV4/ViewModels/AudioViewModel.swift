@@ -40,10 +40,8 @@ final class AudioViewModel {
         EngineProfile.allProfiles
     }
 
-    /// Current throttle state (0-1) detected from RPM changes
-    var throttleState: Double {
-        vehicleSimulator.throttleState
-    }
+    /// Current throttle state (0-1) from real accelerator pedal
+    private(set) var throttleState: Double = 0
 
     /// Current gear from physics simulation
     var currentGear: Int {
@@ -84,23 +82,32 @@ final class AudioViewModel {
         audioService.stop()
     }
 
-    // MARK: - RPM Updates
+    // MARK: - OBD Data Updates
 
-    func updateRPM(_ rpm: Int) {
+    /// Update from OBD data (RPM and real accelerator pedal)
+    func updateFromOBD(rpm: Int, acceleratorPedal: Int) {
         let now = Date()
         let dt = now.timeIntervalSince(lastUpdateTime)
         lastUpdateTime = now
 
         // Update physics simulation
-        if dt > 0 && dt < 1.0 {  // Sanity check for time delta
+        if dt > 0 && dt < 1.0 {
             vehicleSimulator.update(targetRPM: rpm, dt: dt)
         }
 
-        // Update audio engine with RPM and detected throttle
+        // Use REAL accelerator pedal position (0-100% -> 0-1)
+        throttleState = Double(acceleratorPedal) / 100.0
+
+        // Update audio engine with RPM and REAL throttle
         audioService.updateRPM(Double(abs(rpm)))
-        audioService.updateThrottle(vehicleSimulator.throttleState)
+        audioService.updateThrottle(throttleState)
 
         previousRPM = rpm
+    }
+
+    /// Legacy method - updates RPM only (throttle will be 0)
+    func updateRPM(_ rpm: Int) {
+        updateFromOBD(rpm: rpm, acceleratorPedal: 0)
     }
 
     // MARK: - Profile Management

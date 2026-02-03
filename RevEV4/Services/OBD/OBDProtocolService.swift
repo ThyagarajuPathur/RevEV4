@@ -160,15 +160,19 @@ final class OBDProtocolService {
         guard let queue = commandQueue, isInitialized else { return }
 
         var newData = self.obdData
-
-        // 1. Request Motor RPM from BMS
-        // Try both PID formats: 220101 (Ioniq 5/EV6) and 2101 (Kona/Niro)
         var rpmSuccess = false
+        var accelSuccess = false
 
-        // First try 220101 (Ioniq 5 / EV6 format)
+        // ============================================
+        // 1. Request Motor RPM from BMS (Header 7E4)
+        // ============================================
+        // Set header to BMS
+        _ = try? await queue.execute("AT SH 7E4", timeout: 2.0)
+
+        // Try 220101 (Ioniq 5 / EV6 format)
         do {
             let response = try await queue.execute("220101", timeout: 5.0)
-            print("DEBUG: [220101] Raw response: \(response.prefix(100))...")
+            print("DEBUG: [BMS 220101] Raw response: \(response.prefix(100))...")
             if let result = OBDParser.parseEVLongRPMWithDebug(from: response) {
                 let (rpm, pid, offset) = result
                 print("DEBUG: RPM=\(rpm) from PID \(pid) at offset \(offset)")
@@ -177,7 +181,7 @@ final class OBDProtocolService {
                 rpmSuccess = true
             }
         } catch {
-            print("DEBUG: [220101] Error: \(error.localizedDescription)")
+            print("DEBUG: [BMS 220101] Error: \(error.localizedDescription)")
             if error.localizedDescription.contains("timeout") {
                 handleTimeout()
             }
@@ -187,7 +191,7 @@ final class OBDProtocolService {
         if !rpmSuccess {
             do {
                 let response = try await queue.execute("2101", timeout: 5.0)
-                print("DEBUG: [2101] Raw response: \(response.prefix(100))...")
+                print("DEBUG: [BMS 2101] Raw response: \(response.prefix(100))...")
                 if let result = OBDParser.parseEVLongRPMWithDebug(from: response) {
                     let (rpm, pid, offset) = result
                     print("DEBUG: RPM=\(rpm) from PID \(pid) at offset \(offset)")
@@ -196,15 +200,30 @@ final class OBDProtocolService {
                     rpmSuccess = true
                 }
             } catch {
-                print("DEBUG: [2101] Error: \(error.localizedDescription)")
-                if error.localizedDescription.contains("timeout") {
-                    handleTimeout()
-                }
+                print("DEBUG: [BMS 2101] Error: \(error.localizedDescription)")
             }
         }
 
+        // ============================================
+        // 2. Request Accelerator Pedal from VMCU (Header 7E2)
+        // ============================================
+        // Switch header to VMCU
+        _ = try? await queue.execute("AT SH 7E2", timeout: 2.0)
+
+        do {
+            let response = try await queue.execute("2101", timeout: 5.0)
+            print("DEBUG: [VMCU 2101] Raw response: \(response.prefix(100))...")
+            if let percentage = OBDParser.parseAcceleratorPedal(from: response) {
+                print("DEBUG: Accelerator Pedal = \(percentage)%")
+                newData.acceleratorPedal = percentage
+                accelSuccess = true
+            }
+        } catch {
+            print("DEBUG: [VMCU 2101] Error: \(error.localizedDescription)")
+        }
+
         // Reset timeout counter on success
-        if rpmSuccess {
+        if rpmSuccess || accelSuccess {
             consecutiveTimeouts = 0
         }
 

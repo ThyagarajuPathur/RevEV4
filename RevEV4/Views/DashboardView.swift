@@ -58,7 +58,16 @@ struct DashboardView: View {
             handleConnectionStateChange(from: oldState, to: newState)
         }
         .onChange(of: obdViewModel.obdData.rpm) { _, newRPM in
-            audioViewModel.updateRPM(newRPM)
+            audioViewModel.updateFromOBD(
+                rpm: newRPM,
+                acceleratorPedal: obdViewModel.obdData.acceleratorPedal
+            )
+        }
+        .onChange(of: obdViewModel.obdData.acceleratorPedal) { _, newAccel in
+            audioViewModel.updateFromOBD(
+                rpm: obdViewModel.obdData.rpm,
+                acceleratorPedal: newAccel
+            )
         }
         .sheet(isPresented: $showDeviceList) {
             DeviceListView(viewModel: obdViewModel)
@@ -96,10 +105,14 @@ struct DashboardView: View {
     // MARK: - Gauges
 
     private var gaugesView: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 16) {
             RPMGaugeView(
                 rpm: obdViewModel.obdData.rpm,
                 maxRPM: audioViewModel.currentProfile.maxRPM
+            )
+
+            AcceleratorPedalGauge(
+                position: obdViewModel.obdData.acceleratorPedal
             )
 
             SpeedGaugeView(

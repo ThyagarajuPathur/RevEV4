@@ -151,6 +151,57 @@ enum OBDParser {
         return nil
     }
 
+    // MARK: - Accelerator Pedal Parsing (VMCU 7E2)
+
+    /// Parse accelerator pedal position from VMCU 2101 response
+    /// Header 7E2, PID 2101 -> response header 61 01
+    /// Byte 13 contains raw value, divide by 2 for percentage (0-100%)
+    static func parseAcceleratorPedal(from response: String) -> Int? {
+        let bytes = extractBytes(from: response)
+
+        // VMCU response: 2101 -> header 61 01
+        if let headerIndex = findHeader(bytes: bytes, header: [0x61, 0x01]) {
+            let acceleratorByteOffset = 12  // Byte 13 (0-indexed = 12) after header
+
+            if bytes.count > headerIndex + acceleratorByteOffset {
+                let rawValue = bytes[headerIndex + acceleratorByteOffset]
+                let percentage = Int(rawValue) / 2  // m/2 = percentage
+                print("DEBUG: Accelerator raw=\(rawValue), percentage=\(percentage)%")
+                return min(100, max(0, percentage))
+            }
+        }
+
+        // Also try 62 21 01 format (for 22 21 01 request)
+        if let headerIndex = findHeader(bytes: bytes, header: [0x62, 0x21, 0x01]) {
+            let acceleratorByteOffset = 12
+
+            if bytes.count > headerIndex + acceleratorByteOffset {
+                let rawValue = bytes[headerIndex + acceleratorByteOffset]
+                let percentage = Int(rawValue) / 2
+                print("DEBUG: Accelerator (62) raw=\(rawValue), percentage=\(percentage)%")
+                return min(100, max(0, percentage))
+            }
+        }
+
+        return nil
+    }
+
+    /// Parse with debug info - returns (percentage, rawByte, offset)
+    static func parseAcceleratorPedalWithDebug(from response: String) -> (Int, UInt8, Int)? {
+        let bytes = extractBytes(from: response)
+
+        if let headerIndex = findHeader(bytes: bytes, header: [0x61, 0x01]) {
+            let offset = 12
+            if bytes.count > headerIndex + offset {
+                let rawValue = bytes[headerIndex + offset]
+                let percentage = Int(rawValue) / 2
+                return (percentage, rawValue, offset)
+            }
+        }
+
+        return nil
+    }
+
     /// Find header bytes in response and return the index of the first data byte
     private static func findHeader(bytes: [UInt8], header: [UInt8]) -> Int? {
         guard bytes.count >= header.count else { return nil }

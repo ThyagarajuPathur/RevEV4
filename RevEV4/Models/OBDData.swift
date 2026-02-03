@@ -9,6 +9,7 @@ import Foundation
 struct OBDData: Sendable {
     var rpm: Int = 0
     var speed: Int = 0
+    var acceleratorPedal: Int = 0  // 0-100%
     var timestamp: Date = Date()
 
     /// RPM as a percentage (0.0 to 1.0) based on typical range 0-8000
